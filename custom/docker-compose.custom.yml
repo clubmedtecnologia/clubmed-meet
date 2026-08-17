@@ -1,0 +1,38 @@
+# Override do serviço `web` para a ponte de áudio do paciente (transcrição da
+# teleconsulta no prontuário v2 do clubmed-web-2024).
+#
+# Por que um arquivo à parte, e não editar o docker-compose.yml da raiz: é um
+# fork upstream (jitsi/docker-jitsi-meet), sobrescrito a cada atualização.
+# Tudo que é customização nossa fica concentrado em `custom/` — este arquivo
+# incluído, e não na raiz — para não competir com o que vem do upstream.
+#
+# O QUE MUDA: só o serviço `web` — troca a imagem publicada (${JITSI_IMAGE_REPO}
+# /web:${JITSI_IMAGE_VERSION}, a mesma que o docker-compose.yml já usa) por uma
+# camada fina em cima dela (web-transcricao/Dockerfile, ao lado deste arquivo),
+# que embute o script e injeta o <script> no index.html. prosody/jicofo/jvb
+# continuam intocados. Nenhum volume extra é preciso: o script vem por COPY no
+# build, versionado neste repo — só clonar e buildar.
+#
+# Uso — ver o passo a passo completo (do zero, servidor novo) em
+# `web-transcricao/README.md`. Resumo, com a raiz do repo como diretório atual:
+#   docker compose -f docker-compose.yml -f custom/docker-compose.custom.yml up -d --build
+#
+# Depois de qualquer atualização do Jitsi (JITSI_IMAGE_VERSION mudou no .env)
+# OU de qualquer mudança em web-transcricao/transcricao-bridge.js, refaça com
+# --build.
+#
+# Rollback — comportamento de hoje (só a voz do médico), chamada não é afetada:
+#   docker compose -f docker-compose.yml up -d web
+services:
+    web:
+        build:
+            # ATENÇÃO: o Compose resolve `build.context` relativo ao diretório
+            # do PROJETO (onde o comando roda / primeiro -f), não ao diretório
+            # deste arquivo — mesmo este .yml estando dentro de custom/, o
+            # caminho abaixo é relativo à raiz do repo. Verificado com
+            # `docker compose config`; não confie no "achismo" aqui.
+            context: ./custom/web-transcricao
+            args:
+                JITSI_IMAGE_REPO: ${JITSI_IMAGE_REPO:-ghcr.io/jitsi}
+                JITSI_IMAGE_VERSION: ${JITSI_IMAGE_VERSION:-unstable}
+        image: clubmed/jitsi-web-transcricao:${JITSI_IMAGE_VERSION:-unstable}
