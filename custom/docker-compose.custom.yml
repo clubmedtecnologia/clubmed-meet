@@ -10,8 +10,18 @@
 # /web:${JITSI_IMAGE_VERSION}, a mesma que o docker-compose.yml já usa) por uma
 # camada fina em cima dela (web-transcricao/Dockerfile, ao lado deste arquivo),
 # que embute o script e injeta o <script> no index.html. prosody/jicofo/jvb
-# continuam intocados. Nenhum volume extra é preciso: o script vem por COPY no
-# build, versionado neste repo — só clonar e buildar.
+# continuam intocados. O script vem por COPY no build (versionado neste repo);
+# config.js/interface_config.js vêm por bind mount DIRETO do repo (ver
+# `volumes` abaixo) — os três customizações saem só de clonar e rodar, sem
+# nenhum `cp` manual pro host antes.
+#
+# config.js/interface_config.js pisam em cima do MESMO caminho que
+# ${CONFIG}/web:/config:Z (docker-compose.yml original) já monta — Docker
+# aceita bind de arquivo dentro de um diretório já montado; o mount mais
+# específico (o arquivo) vence só naquele caminho, o resto do diretório
+# continua vindo do host normalmente. Consequência a saber: a partir de agora
+# esses dois arquivos são fonte-única-do-repo — editar `$CONFIG/web/config.js`
+# direto no host NÃO tem mais efeito, porque o bind do repo sobrepõe.
 #
 # Uso — ver o passo a passo completo (do zero, servidor novo) em
 # `web-transcricao/README.md`. Resumo, com a raiz do repo como diretório atual:
@@ -36,3 +46,13 @@ services:
                 JITSI_IMAGE_REPO: ${JITSI_IMAGE_REPO:-ghcr.io/jitsi}
                 JITSI_IMAGE_VERSION: ${JITSI_IMAGE_VERSION:-unstable}
         image: clubmed/jitsi-web-transcricao:${JITSI_IMAGE_VERSION:-unstable}
+        volumes:
+            # Caminhos relativos à raiz do projeto, mesma ressalva do
+            # `build.context` acima. `:ro` porque o container não tem motivo
+            # pra escrever nesses arquivos.
+            #
+            # Mudou o conteúdo? Só `docker compose restart web` — é bind, não
+            # entra na imagem, não precisa de --build (diferente do
+            # transcricao-bridge.js, que é COPY).
+            - ./custom/config.js:/config/config.js:ro
+            - ./custom/interface_config.js:/config/interface_config.js:ro

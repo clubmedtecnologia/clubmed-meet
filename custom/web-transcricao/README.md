@@ -16,6 +16,16 @@ arquivo para cá antes de buildar.
 deliberado — como é um fork, um `git pull`/merge do upstream não deveria
 nunca colidir com nada nosso.
 
+`custom/docker-compose.custom.yml` também monta `custom/config.js` e
+`custom/interface_config.js` **direto do repo** para dentro do container
+(`/config/config.js`, `/config/interface_config.js` — o mesmo caminho que
+`${CONFIG}/web:/config` do `docker-compose.yml` original já expõe; Docker
+aceita bind de arquivo dentro de diretório já montado, e o mais específico
+vence só naquele caminho). Não precisa mais copiar esses dois pra
+`$CONFIG/web/` manualmente — clonar o repo já é suficiente. Consequência:
+editar `$CONFIG/web/config.js` direto no host deixou de ter efeito; o repo
+é a fonte única a partir de agora.
+
 ## Por que COPY na imagem, e não volume
 
 `${CONFIG}/web:/config:Z` (linha 14 do `docker-compose.yml` da raiz) só é
@@ -94,13 +104,13 @@ do que cria depois.
 Preenche `JICOFO_AUTH_PASSWORD`, `JVB_AUTH_PASSWORD` etc. no `.env` — a
 comunicação interna prosody↔jicofo↔jvb, não tem relação com a ponte de áudio.
 
-### Passo 4 — Colocar `custom/config.js` e `custom/interface_config.js` no lugar
+### Passo 4 — (nada a fazer)
 
-```bash
-cp custom/config.js custom/interface_config.js "$CONFIG/web/"
-```
-
-Suas customizações de UI/config de sempre — nada mudou aqui.
+`custom/config.js` e `custom/interface_config.js` já sobem sozinhos no
+Passo 7, montados direto do repo pelo `custom/docker-compose.custom.yml` —
+não precisa mais copiar pra `$CONFIG/web/` à mão. Se preferir rodar só
+`docker compose -f docker-compose.yml up -d web` (sem o override), aí sim
+volta a valer o `cp` manual de antes.
 
 ### Passo 5 — Pré-condição da ponte de áudio (2 min)
 
@@ -169,11 +179,12 @@ falas saem rotuladas `Méd`/`Pac`.
 
 ---
 
-## Trocar o conteúdo do script depois
+## Trocar o conteúdo depois
 
-Repita os Passos 6 e 7. O arquivo faz parte da imagem — não há atalho sem
-rebuild, mas como só a camada fina muda, o build reaproveita o cache da base
-e roda em segundos, não minutos.
+| Arquivo | Como entra | Pra atualizar |
+| ------- | ---------- | -------------- |
+| `transcricao-bridge.js` | `COPY` na imagem (build) | Passos 6 e 7 (`--build`) — só a camada fina reconstrói, cache da base é reaproveitado, roda em segundos |
+| `config.js` / `interface_config.js` | bind mount direto do repo | editar o arquivo em `custom/` + `docker compose restart web` — **não precisa de `--build`**, é bind, não entra na imagem |
 
 ## Rollback
 
