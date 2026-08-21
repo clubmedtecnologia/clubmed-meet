@@ -204,3 +204,13 @@ em nenhum momento.
    (`APP.store`) usada pelo `transcricao-bridge.js` pode mudar de forma entre
    versões. Se mudar, o script cai no fallback dos elementos `<audio>`; se os
    dois falharem, vira no-op e avisa `indisponivel` — nunca falha em silêncio.
+
+
+## Configurações no servidor
+
+chown -R 1000:1000 ~/.jitsi-meet-cfg
+docker compose -f docker-compose.yml -f custom/docker-compose.custom.yml up -d
+docker ps
+docker inspect meet-web-1 --format 'RestartCount: {{.RestartCount}}'
+
+docker exec -u 0 -i meet-web-1 sh -c 'cat > /run/web/config/interface_config.js' < custom/interface_config.js
